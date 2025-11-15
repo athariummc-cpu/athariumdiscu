@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Minecraft Messenger (Pushover)</title>
+<link rel="icon" href="data:;base64,iVBORw0KGgo=">
+<style>
+  :root{
+    --bg:#0f1720;--card:#0b1220;--accent:#22c55e;--muted:#94a3b8;--glass:rgba(255,255,255,0.04);
+    --danger:#ef4444;--radius:12px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:linear-gradient(180deg,#071021 0%, #071827 100%);color:#e6eef6;
+    display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  .wrap{width:100%;max-width:820px}
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+    border-radius:16px;padding:18px;box-shadow:0 6px 30px rgba(2,6,23,0.6);backdrop-filter: blur(6px);
+  }
+  header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .logo{
+    width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,#16a34a,#06b6d4);
+    display:flex;align-items:center;justify-content:center;font-weight:700;color:#041014;font-size:20px;
+  }
+  h1{margin:0;font-size:20px}
+  p.lead{margin:6px 0 14px;color:var(--muted);font-size:13px}
+
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .col{flex:1;min-width:180px}
+
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+    background:var(--glass);border:1px solid rgba(255,255,255,0.04);padding:10px 14px;border-radius:10px;color:inherit;
+  }
+  .btn.primary{background:linear-gradient(90deg,var(--accent),#06b6d4);color:#041014;font-weight:700;border:none}
+  .btn.ghost{background:transparent;border:1px dashed rgba(255,255,255,0.05)}
+  .btn.small{padding:6px 8px;font-size:13px;border-radius:8px}
+
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  input[type=text], input[type=password], textarea, select{
+    width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);
+    background:transparent;color:inherit;font-size:14px;outline:none;
+  }
+  textarea{min-height:120px;resize:vertical}
+  .muted{color:var(--muted);font-size:13px;margin-top:8px}
+
+  .sendbar{display:flex;gap:10px;align-items:center;margin-top:12px}
+  .status{padding:8px 10px;border-radius:10px;background:rgba(255,255,255,0.02);font-size:13px;color:var(--muted)}
+  .footer{margin-top:14px;color:var(--muted);font-size:12px;text-align:center}
+
+  /* responsive */
+  @media (max-width:560px){
+    .row{flex-direction:column}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <div class="logo">MSG</div>
+        <div>
+          <h1>Minecraft Messenger</h1>
+          <p class="lead">Choisis ton pseudo, écris un message — il sera envoyé via Pushover sur ton téléphone.</p>
+        </div>
+      </header>
+
+      <div class="row">
+        <div class="col">
+          <label>Choisis ton pseudo</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" data-sender="Kefox">Kefox</button>
+            <button class="btn" data-sender="Itmoz">Itmoz</button>
+            <!-- Ajoute d'autres pseudos si besoin -->
+          </div>
+          <div class="muted" style="margin-top:8px">Le pseudo sélectionné apparaîtra au début du message.</div>
+        </div>
+
+        <div class="col">
+          <label>Clés Pushover (localement enregistrées)</label>
+          <input id="inputUser" type="text" placeholder="User Key (ex: u...)" />
+          <div style="height:8px"></div>
+          <input id="inputToken" type="password" placeholder="API Token/Key (ex: a...)" />
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="btnSave" class="btn small">Sauvegarder</button>
+            <button id="btnClear" class="btn small ghost">Effacer</button>
+          </div>
+          <div class="muted">Les clés sont stockées uniquement dans ton navigateur (localStorage).</div>
+        </div>
+      </div>
+
+      <hr style="margin:16px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)">
+
+      <div>
+        <label>Message</label>
+        <textarea id="message" placeholder="Écris ton message..."></textarea>
+        <div class="sendbar">
+          <div style="flex:1">
+            <button id="btnSend" class="btn primary">Envoyer</button>
+            <button id="btnPreview" class="btn ghost">Aperçu</button>
+          </div>
+          <div class="status" id="status">Prêt</div>
+        </div>
+        <div class="muted" style="margin-top:8px">Appuie sur Entrée (dans le champ) pour envoyer rapidement.</div>
+      </div>
+
+      <div class="footer">
+        <small>Tu peux héberger ce fichier sur GitHub Pages / Netlify / ton panel. Pushover est payant 5€ à vie par compte.</small>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const btns = document.querySelectorAll('button[data-sender]');
+  const inputUser = document.getElementById('inputUser');
+  const inputToken = document.getElementById('inputToken');
+  const btnSave = document.getElementById('btnSave');
+  const btnClear = document.getElementById('btnClear');
+  const btnSend = document.getElementById('btnSend');
+  const btnPreview = document.getElementById('btnPreview');
+  const status = document.getElementById('status');
+  const messageEl = document.getElementById('message');
+
+  let selected = null;
+
+  // load saved keys
+  inputUser.value = localStorage.getItem('pushover_user') || '';
+  inputToken.value = localStorage.getItem('pushover_token') || '';
+
+  // sender buttons
+  btns.forEach(b => {
+    b.addEventListener('click', () => {
+      selected = b.getAttribute('data-sender');
+      btns.forEach(x => x.classList.remove('primary'));
+      b.classList.add('primary');
+      status.innerText = `Pseudo sélectionné : ${selected}`;
+    });
+  });
+
+  // save keys
+  btnSave.addEventListener('click', () => {
+    const u = inputUser.value.trim();
+    const t = inputToken.value.trim();
+    if(!u || !t){ status.innerText = 'User & Token requis pour envoyer'; status.style.color = '#f59e0b'; return; }
+    localStorage.setItem('pushover_user', u);
+    localStorage.setItem('pushover_token', t);
+    status.innerText = 'Clés sauvegardées (localStorage)';
+    status.style.color = '#9ae6b4';
+    setTimeout(()=>status.innerText='Prêt',1500);
+  });
+
+  // clear keys
+  btnClear.addEventListener('click', () => {
+    localStorage.removeItem('pushover_user');
+    localStorage.removeItem('pushover_token');
+    inputUser.value=''; inputToken.value='';
+    status.innerText='Clés effacées';
+    status.style.color = '#fca5a5';
+    setTimeout(()=>status.innerText='Prêt',1200);
+  });
+
+  // preview
+  btnPreview.addEventListener('click', () => {
+    if(!selected){ status.innerText='Choisis d\'abord ton pseudo'; status.style.color='#f59e0b'; return; }
+    const txt = messageEl.value.trim();
+    if(!txt){ status.innerText='Écris d\'abord un message'; status.style.color='#f59e0b'; return; }
+    alert(`${selected} a dit :\n\n${txt}`);
+  });
+
+  // send
+  async function send(){
+    if(!selected){ status.innerText='Choisis ton pseudo'; status.style.color='#f59e0b'; return; }
+    const txt = messageEl.value.trim();
+    if(!txt){ status.innerText='Message vide'; status.style.color='#f59e0b'; return; }
+
+    const user = inputUser.value.trim() || localStorage.getItem('pushover_user');
+    const token = inputToken.value.trim() || localStorage.getItem('pushover_token');
+    if(!user || !token){ status.innerText='User/Token manquants (saisis et sauvegarde)'; status.style.color='#f59e0b'; return; }
+
+    const payload = new URLSearchParams();
+    payload.append('token', token);
+    payload.append('user', user);
+    payload.append('message', `${selected} a dit : ${txt}`);
+
+    try {
+      status.innerText = 'Envoi…';
+      status.style.color = '#94a3b8';
+      const res = await fetch('https://api.pushover.net/1/messages.json', {
+        method: 'POST',
+        body: payload,
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if(res.ok){
+        status.innerText = 'Envoyé ✔';
+        status.style.color = '#9ae6b4';
+        messageEl.value = '';
+        setTimeout(()=>status.innerText='Prêt',1500);
+      } else {
+        const txtRes = await res.text();
+        status.innerText = 'Erreur envoi';
+        status.style.color = '#ffb4b4';
+        console.error('Pushover error', res.status, txtRes);
+        alert('Erreur Pushover: ' + res.status + '\\n' + txtRes);
+      }
+    } catch(err){
+      status.innerText = 'Erreur réseau';
+      status.style.color = '#ffb4b4';
+      console.error(err);
+      alert('Erreur réseau: ' + err.message);
+    }
+  }
+
+  btnSend.addEventListener('click', send);
+
+  // Enter to send when ctrl/shift not pressed
+  messageEl.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' && !e.shiftKey && !e.ctrlKey){
+      e.preventDefault();
+      send();
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
